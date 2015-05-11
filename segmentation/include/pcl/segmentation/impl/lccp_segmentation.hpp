@@ -285,6 +285,24 @@ pcl::LCCPSegmentation<PointT>::segment (std::map<uint32_t, typename pcl::Supervo
   // Correct edge relations using extended convexity definition if k>0
   applyKconvexity (k_factor_);
 
+  // Determine wether to use cutting planes
+  doGrouping ();
+  grouping_data_valid_ = true;
+}
+
+template <typename PointT> void
+pcl::LCCPSegmentation<PointT>::doGrouping ()
+{
+  // clear the processed_ map
+  seg_label_to_sv_list_map_.clear ();
+  for (typename std::map<uint32_t, typename pcl::Supervoxel<PointT>::Ptr>::iterator svlabel_itr = sv_label_to_supervoxel_map_.begin ();
+      svlabel_itr != sv_label_to_supervoxel_map_.end (); ++svlabel_itr)
+  {
+    const uint32_t sv_label = svlabel_itr->first;
+    processed_[sv_label] = false;
+    sv_label_to_seg_label_map_[sv_label] = 0;
+  }
+  
   // Perform depth search on the graph and recursively group all supervoxels with convex connections
   //The vertices in the supervoxel adjacency list are the supervoxel centroids
   std::pair< VertexIterator, VertexIterator> vertex_iterator_range;
@@ -299,16 +317,15 @@ pcl::LCCPSegmentation<PointT>::segment (std::map<uint32_t, typename pcl::Supervo
     if (!processed_[sv_label])
     {
       // Add neighbors (and their neighbors etc.) to group if similarity constraint is met
-      recursiveGrouping (sv_vertex_id, segment_label);
+      recursiveSegmentGrowing (sv_vertex_id, segment_label);
       ++segment_label;  // After recursive grouping ended (no more neighbors to consider) -> go to next group
     }
   }
-  grouping_data_valid_ = true;
 }
 
 template <typename PointT> void
-pcl::LCCPSegmentation<PointT>::recursiveGrouping (VertexID const &query_point_id,
-                                                  unsigned int const segment_label)
+pcl::LCCPSegmentation<PointT>::recursiveSegmentGrowing (VertexID const &query_point_id,
+                                                        unsigned int const segment_label)
 {
   const uint32_t sv_label = sv_adjacency_list_[query_point_id];
 
@@ -328,9 +345,9 @@ pcl::LCCPSegmentation<PointT>::recursiveGrouping (VertexID const &query_point_id
 
     if (!processed_[neighbor_label])  // If neighbor was not already processed
     {
-      if (sv_adjacency_list_[*out_Edge_itr].is_convex)
+      if (sv_adjacency_list_[*out_Edge_itr].is_valid)
       {
-        recursiveGrouping (neighbor_ID, segment_label);
+        recursiveSegmentGrowing (neighbor_ID, segment_label);
       }
     }
   }  // End neighbor loop
@@ -397,7 +414,7 @@ pcl::LCCPSegmentation<PointT>::applyKconvexity (unsigned int k_arg)
 
       // Check k convexity
       if (kcount < k_arg)
-        (sv_adjacency_list_)[*edge_itr].is_convex = false;
+        (sv_adjacency_list_)[*edge_itr].is_valid= false;
     }
   }
 }
@@ -417,14 +434,18 @@ pcl::LCCPSegmentation<PointT>::calculateConvexConnections (SupervoxelAdjacencyLi
     uint32_t source_sv_label = adjacency_list_arg[boost::source (*edge_itr, adjacency_list_arg)];
     uint32_t target_sv_label = adjacency_list_arg[boost::target (*edge_itr, adjacency_list_arg)];
 
-    is_convex = connIsConvex (source_sv_label, target_sv_label);
+    float normal_difference;
+    is_convex = connIsConvex (source_sv_label, target_sv_label, normal_difference);
     adjacency_list_arg[*edge_itr].is_convex = is_convex;
+    adjacency_list_arg[*edge_itr].is_valid = is_convex;
+    adjacency_list_arg[*edge_itr].normal_difference = normal_difference;
   }
 }
 
 template <typename PointT> bool
 pcl::LCCPSegmentation<PointT>::connIsConvex (uint32_t source_label_arg,
-                                             uint32_t target_label_arg)
+                                             uint32_t target_label_arg,
+                                             float &normal_angle)
 {
   typename pcl::Supervoxel<PointT>::Ptr& sv_source = sv_label_to_supervoxel_map_[source_label_arg];
   typename pcl::Supervoxel<PointT>::Ptr& sv_target = sv_label_to_supervoxel_map_[target_label_arg];
@@ -444,7 +465,7 @@ pcl::LCCPSegmentation<PointT>::connIsConvex (uint32_t source_label_arg,
   bool is_convex = true;
   bool is_smooth = true;
 
-  float normal_angle = getAngle3D (source_normal, target_normal, true);
+  normal_angle = getAngle3D (source_normal, target_normal, true);
   //  Geometric comparisons
   Eigen::Vector3f vec_t_to_s, vec_s_to_t;
   

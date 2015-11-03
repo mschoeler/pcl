@@ -49,7 +49,7 @@
 #include <pcl/sample_consensus/sac.h>
 
 //pcl::PointXYZINormal is not a core point type (so we cannot use the precompiled classes here)
-#ifndef PCL_ONLY_CORE_POINT_TYPES  
+#ifndef PCL_ONLY_CORE_POINT_TYPES    
   #include <pcl/sample_consensus/sac_model_plane.h>
   #include <pcl/segmentation/extract_clusters.h>
 #else
@@ -58,7 +58,6 @@
 #endif //PCL_ONLY_CORE_POINT_TYPES
 
 #define PCL_INSTANTIATE_CPCSegmentation(T) template class PCL_EXPORTS pcl::CPCSegmentation<T>;
-#define PCL_INSTANTIATE_WeightedRandomSampleConsensus(T) template class PCL_EXPORTS pcl::WeightedRandomSampleConsensus<T>;
 
 namespace pcl
 {  
@@ -74,11 +73,11 @@ namespace pcl
   template <typename PointT>
   class CPCSegmentation : public LCCPSegmentation<PointT>
   {
-      typedef pcl::PointXYZINormal WeightSACPointType;
+      typedef PointXYZINormal WeightSACPointType;
       typedef LCCPSegmentation<PointT> LCCP;
       // LCCP typedefs
-      using typename LCCP::EdgeID;
-      using typename LCCP::EdgeIterator;
+      typedef typename LCCP::EdgeID EdgeID;
+      typedef typename LCCP::EdgeIterator EdgeIterator;
       // LCCP methods
       using LCCP::calculateConvexConnections;
       using LCCP::applyKconvexity;

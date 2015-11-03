@@ -39,7 +39,6 @@
 #define PCL_SEGMENTATION_IMPL_CPC_SEGMENTATION_HPP_
 
 #include <pcl/segmentation/cpc_segmentation.h>
-#include <pcl/sample_consensus/sac_model_plane.h>
 
 template <typename PointT>
 pcl::CPCSegmentation<PointT>::CPCSegmentation () :
@@ -87,8 +86,6 @@ template <typename PointT> void
 pcl::CPCSegmentation<PointT>::applyCuttingPlane (uint32_t depth_levels_left)
 {
   typedef std::map<uint32_t, pcl::PointCloud<WeightSACPointType>::Ptr> SegLabel2ClusterMap;
-  typedef std::map<uint32_t, std::vector<EdgeID> > SegLabel2Edges;
-  typedef SegLabel2ClusterMap::iterator ClusterMapItrT;  
   
   pcl::console::print_info ("Cutting at level %d (maximum %d)\n", max_cuts_ - depth_levels_left + 1, max_cuts_);
   // stop if we reached the 0 level
@@ -96,7 +93,7 @@ pcl::CPCSegmentation<PointT>::applyCuttingPlane (uint32_t depth_levels_left)
     return;
 
   SegLabel2ClusterMap seg_to_edge_points_map;
-  SegLabel2Edges seg_to_edgeIDs_map;
+  std::map<uint32_t, std::vector<EdgeID> > seg_to_edgeIDs_map;
   EdgeIterator edge_itr, edge_itr_end, next_edge;
   boost::tie (edge_itr, edge_itr_end) = boost::edges (sv_adjacency_list_);
   for (next_edge = edge_itr; edge_itr != edge_itr_end; edge_itr = next_edge)
@@ -139,7 +136,7 @@ pcl::CPCSegmentation<PointT>::applyCuttingPlane (uint32_t depth_levels_left)
   }
   bool cut_found = false;
   // do the following processing for each segment separately
-  for (ClusterMapItrT itr = seg_to_edge_points_map.begin (); itr != seg_to_edge_points_map.end (); ++itr)
+  for (SegLabel2ClusterMap::iterator itr = seg_to_edge_points_map.begin (); itr != seg_to_edge_points_map.end (); ++itr)
   {
     // if too small do not process
     if (itr->second->size () < min_segment_size_for_cutting_)
